@@ -63,7 +63,7 @@ body{
   z-index:1;
 }
 
-/* ESFERA: SOLO FOTO */
+/* ESFERA DE CRISTAL */
 .orb-window{
   position:absolute;
   z-index:3;
@@ -77,19 +77,38 @@ body{
   display:flex;
   align-items:center;
   justify-content:center;
+  isolation:isolate;
   pointer-events:none;
-  background:radial-gradient(circle,rgba(255,190,241,.10),rgba(255,105,215,.04) 65%,transparent 72%);
+
+  background:
+    radial-gradient(ellipse at 28% 18%,
+      rgba(255,255,255,.24),
+      transparent 38%),
+    radial-gradient(circle at 50% 50%,
+      rgba(255,105,220,.15),
+      rgba(100,20,130,.12) 75%,
+      rgba(255,255,255,.18));
+
+  box-shadow:
+    inset 0 0 12px rgba(255,255,255,.45),
+    inset 0 0 25px rgba(255,70,210,.35),
+    0 0 12px #ff39d2,
+    0 0 25px #a83cff;
 }
 
 .orb-content{
-  position:relative;
+  position:absolute;
+  inset:0;
   width:100%;
   height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
+  border-radius:50%;
+  overflow:hidden;
 }
 
+/* PARTICIPANTE */
 .participant{
   position:absolute;
   inset:0;
@@ -108,26 +127,87 @@ body{
   transform:scale(1);
 }
 
+/* FOTO DENTRO DE LA ESFERA */
 .avatar{
   display:block;
   width:100%;
   height:100%;
-  max-width:100%;
-  max-height:100%;
-  aspect-ratio:1 / 1;
+  max-width:none;
+  max-height:none;
+  aspect-ratio:1/1;
   object-fit:cover;
-  object-position:center center;
+  object-position:50% 40%;
   border-radius:50%;
-  border:2px solid #ffd0f3;
-  box-shadow:
-    0 0 12px #ff39d2,
-    0 0 25px #a83cff;
+  border:0;
+  box-shadow:none;
   background:#24102f;
 }
-/* NOMBRE Y COMENTARIO DEBAJO */
-.sue-caption{
+
+/* REFLEJOS DEL CRISTAL */
+.orb-window::before{
+  content:"";
   position:absolute;
   z-index:5;
+  inset:0;
+  border-radius:50%;
+  pointer-events:none;
+
+  background:
+    radial-gradient(
+      ellipse at 29% 13%,
+      rgba(255,255,255,.48) 0%,
+      rgba(255,255,255,.20) 8%,
+      rgba(255,255,255,.06) 19%,
+      transparent 35%
+    ),
+    radial-gradient(
+      ellipse at 76% 77%,
+      rgba(255,180,245,.17),
+      transparent 35%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.12),
+      transparent 42%,
+      rgba(255,80,220,.12)
+    );
+}
+
+/* BORDE INTERIOR Y PROFUNDIDAD */
+.orb-window::after{
+  content:"";
+  position:absolute;
+  z-index:6;
+  inset:2px;
+  border-radius:50%;
+  border:1px solid rgba(255,220,255,.65);
+  box-shadow:
+    inset 0 0 8px rgba(255,255,255,.35),
+    inset 0 -8px 15px rgba(255,50,210,.20),
+    inset 0 0 22px rgba(255,255,255,.12);
+  pointer-events:none;
+}
+
+/* DESTELLO SUPERIOR */
+.orb-content::before{
+  content:"";
+  position:absolute;
+  z-index:7;
+  top:7%;
+  left:17%;
+  width:22%;
+  height:9%;
+  border-radius:50%;
+  transform:rotate(-35deg);
+  background:rgba(255,255,255,.48);
+  filter:blur(4px);
+  pointer-events:none;
+}
+
+/* NOMBRE Y COMENTARIO */
+.sue-caption{
+  position:absolute;
+  z-index:8;
   left:50%;
   bottom:10px;
   transform:translateX(-50%);
@@ -265,7 +345,6 @@ button:disabled{
       <div class="orb-window" aria-live="polite">
         <div class="orb-content">
 
-          <!-- SOLO LA FOTO DENTRO DE LA ESFERA -->
           <div class="participant" id="participant">
             <img class="avatar" id="avatar" alt="Foto del participante">
           </div>
@@ -275,7 +354,6 @@ button:disabled{
 
     </div>
 
-    <!-- NOMBRE Y COMENTARIO DEBAJO DE LA ESFERA -->
     <div class="sue-caption">
       <strong id="headline">✨ ¡Sorteo de comentarios! 💗</strong>
       <span id="subline">Esperando participantes...</span>
@@ -307,10 +385,7 @@ button:disabled{
 </main>
 
 <script>
-/* =========================================
-   CONFIGURACIÓN FIREBASE
-========================================= */
-
+/* FIREBASE */
 const FIREBASE = {
   apiKey: 'AIzaSyA5YD-m6NZXyic16A0yHXo7RNJ5b-8U8Uk',
   databaseURL: 'https://valentina-music-default-rtdb.firebaseio.com'
@@ -318,10 +393,7 @@ const FIREBASE = {
 
 let firebaseToken = '';
 
-/* =========================================
-   PARTICIPANTES DE DEMOSTRACIÓN
-========================================= */
-
+/* DEMOSTRACIÓN */
 const demo = [
   {
     name:'@participante_01',
@@ -355,23 +427,14 @@ const demo = [
   }
 ];
 
-/* =========================================
-   VARIABLES
-========================================= */
-
 const $ = id => document.getElementById(id);
 
 let participants = [];
 let timer = null;
 let busy = false;
 
-/* =========================================
-   MOSTRAR PARTICIPANTE
-   Foto en la esfera.
-   Nombre y comentario debajo.
-========================================= */
-
-function show(p) {
+/* MOSTRAR PARTICIPANTE */
+function show(p){
 
   $('avatar').src = p.avatar || '';
 
@@ -384,13 +447,10 @@ function show(p) {
   $('participant').classList.add('show');
 }
 
-/* =========================================
-   CONECTAR CON FIREBASE
-========================================= */
+/* CONECTAR FIREBASE */
+async function connectFirebase(){
 
-async function connectFirebase() {
-
-  if (firebaseToken) return firebaseToken;
+  if(firebaseToken) return firebaseToken;
 
   const response = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(FIREBASE.apiKey)}`,
@@ -403,7 +463,7 @@ async function connectFirebase() {
 
   const data = await response.json();
 
-  if (!response.ok) {
+  if(!response.ok){
     throw new Error(data.error?.message || 'No se pudo autenticar con Firebase');
   }
 
@@ -412,61 +472,59 @@ async function connectFirebase() {
   return firebaseToken;
 }
 
-/* =========================================
-   CARGAR PARTICIPANTES DESDE FIREBASE
-========================================= */
-
-async function loadParticipants() {
+/* CARGAR PARTICIPANTES */
+async function loadParticipants(){
 
   const button = $('loadBtn');
 
   button.disabled = true;
   button.textContent = 'Conectando...';
 
-  try {
+  try{
 
     const token = await connectFirebase();
 
-    $('status').textContent = 'Buscando participantes guardados por Valentina...';
+    $('status').textContent =
+      'Buscando participantes guardados por Valentina...';
 
     const url =
       `${FIREBASE.databaseURL}/rooms/main/raffle/current.json?auth=${encodeURIComponent(token)}`;
 
     const response = await fetch(url);
-
     const data = await response.json();
 
-    if (!response.ok) {
+    if(!response.ok){
       throw new Error(data.error || 'No se pudieron leer los participantes');
     }
 
-    if (!data || !Array.isArray(data.participants)) {
+    if(!data || !Array.isArray(data.participants)){
       throw new Error('Todavía no hay participantes. Primero extrae los comentarios desde TikTok.');
     }
 
     const unique = new Map();
 
-    for (const p of data.participants) {
+    for(const p of data.participants){
 
-      const username = String(p.username || p.name || '').replace(/^@/, '').trim();
+      const username =
+        String(p.username || p.name || '').replace(/^@/,'').trim();
 
-      if (!username) continue;
+      if(!username) continue;
 
       const key = username.toLowerCase();
 
-      if (!unique.has(key)) {
-        unique.set(key, {
-          name: p.name || '@' + username,
+      if(!unique.has(key)){
+        unique.set(key,{
+          name:p.name || '@' + username,
           username,
-          text: p.text || 'Participando en el sorteo',
-          avatar: p.avatar || ''
+          text:p.text || 'Participando en el sorteo',
+          avatar:p.avatar || ''
         });
       }
     }
 
     participants = [...unique.values()];
 
-    if (!participants.length) {
+    if(!participants.length){
       throw new Error('La lista recibida no contiene participantes válidos.');
     }
 
@@ -474,18 +532,19 @@ async function loadParticipants() {
     $('winner').classList.remove('show');
 
     $('headline').textContent = '💗 ¡Participantes cargados!';
-    $('subline').textContent = `${participants.length} participantes únicos preparados`;
+    $('subline').textContent =
+      `${participants.length} participantes únicos preparados`;
 
     $('status').textContent =
       `✅ Se cargaron ${participants.length} participantes desde Firebase. Ya puedes iniciar la ruleta.`;
 
     show(participants[0]);
 
-  } catch (error) {
+  }catch(error){
 
     $('status').textContent = 'Error: ' + error.message;
 
-  } finally {
+  }finally{
 
     button.disabled = false;
     button.textContent = '📥 Cargar participantes desde Firebase';
@@ -493,13 +552,10 @@ async function loadParticipants() {
   }
 }
 
-$('loadBtn').addEventListener('click', loadParticipants);
+$('loadBtn').addEventListener('click',loadParticipants);
 
-/* =========================================
-   MODO DE PRUEBA
-========================================= */
-
-function enableDemo() {
+/* MODO DE PRUEBA */
+function enableDemo(){
 
   participants = demo.slice();
 
@@ -517,15 +573,12 @@ function enableDemo() {
 
 window.previewSueRoulette = enableDemo;
 
-$('demoBtn').addEventListener('click', enableDemo);
+$('demoBtn').addEventListener('click',enableDemo);
 
-/* =========================================
-   RULETA
-========================================= */
+/* RULETA */
+$('spinBtn').addEventListener('click',()=>{
 
-$('spinBtn').addEventListener('click', () => {
-
-  if (busy || !participants.length) return;
+  if(busy || !participants.length) return;
 
   busy = true;
 
@@ -541,7 +594,7 @@ $('spinBtn').addEventListener('click', () => {
   let delay = 65;
   let chosen = null;
 
-  const tick = () => {
+  const tick = ()=>{
 
     chosen = participants[
       Math.floor(Math.random() * participants.length)
@@ -551,13 +604,13 @@ $('spinBtn').addEventListener('click', () => {
 
     count++;
 
-    delay = Math.min(420, delay + count * 1.65);
+    delay = Math.min(420,delay + count * 1.65);
 
-    if (count < 34) {
+    if(count < 34){
 
-      timer = setTimeout(tick, delay);
+      timer = setTimeout(tick,delay);
 
-    } else {
+    }else{
 
       busy = false;
 
@@ -588,4 +641,3 @@ $('spinBtn').addEventListener('click', () => {
 
 </body>
 </html>
-
